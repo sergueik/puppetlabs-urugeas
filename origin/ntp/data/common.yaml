@@ -1,0 +1,6 @@
+---
+ntp::package_name: 'ntp' 
+ntp::config_dir: ~
+ntp::config_file_mode: '0644'
+ntp::config: '/etc/ntp.conf'
+ntp::config_template: ~
