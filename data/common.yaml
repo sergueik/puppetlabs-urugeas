@@ -1,0 +1,279 @@
+---
+urugeas::udlc: false
+urugeas::version: '0.2.3'
+urugeas::undef_value: ~
+urugeas::empty_value: ''
+urugeas::setting: On
+urugeas::jetty_mod::xml_template: 'jetty_xml.erb'
+urugeas::defined_check::dummy_defined: 'yes'
+# suppress running augool during augeas resource testing and vice versa
+urugeas::exercise_tomcat_security_change: false
+urugeas::exercise_augtool: true
+# the shell command will be eventually embedded in a Jenkins job config.xml as CDATA section but here is it just a plain shell script
+# so the ampersand, quotes, greater and less would be escaped
+urugeas::shell_build_command: '# some curl command with output captured to $LOG_FILE'
+urugeas::rest_command_payload_fragment:  |
+  PAYLOAD=$(cat<<END|jq -c '.'
+  {
+    "repo": "${REPO}",
+    "app" : "${APP}",
+    "commands": [
+      {
+        "${SERVCE_NAME}": "stop",
+      }
+    ],
+    "filter": {
+      "node": "${NODE}",
+      "datacenter": "${DATACENTER}",
+     }
+  }
+  echo "PAYLOAD=${PAYLOAD}"
+  END
+  )
+  # if there is a requirement to echo the command
+  PAYLOAD_DISPAY=$(echo $PAYLOAD | sed 's/"/\\' )
+  # example usage:
+  # curl -# -X POST -H 'Content-Type: application/json' -d "$PAYLOAD" -k $URL
+
+# NOTE: preserve a blank line above
+
+urugeas::shell_command:  |
+  MAX_RETRY= %{hiera('urugeas::max_retry')}
+  TRY=$MAX_RETRY
+  while [[ $TRY != 0 ]] ; do
+    %{hiera('urugeas::shell_build_command')}
+    # fatal errors quit immediately
+    if [ ! -z "$FATAL_ERROR_PATTERNS_REGEXP" ]
+    then
+      grep -qiE "$FATAL_ERROR_PATTERNS_REGEXP" $LOG_FILE > /dev/null
+      if [[ $? -eq 0 ]]
+      then
+        echo 'There was a fatal error:'
+        grep -iE "$FATAL_ERROR_PATTERNS_REGEXP" $LOG_FILE
+        echo 'Aborting'
+        exit 1
+      fi
+    fi
+    # non-fatal errors retry and do not set status toa failure
+    ERROR_DETECTED=false
+    grep -qiE "$ERROR_PATTERNS_REGEXP" $LOG_FILE > /dev/null
+    if [[ $? -eq 0 ]]
+    then
+      ERROR_DETECTED=true
+    fi
+    if $ERROR_DETECTED
+    then
+      echo 'There was a non-fatal error:'
+      grep -iE "$ERROR_PATTERNS_REGEXP" $LOG_FILE
+      TRY=$(expr $TRY - 1)
+      TRY_COUNT=$(expr $MAX_RETRY - $TRY)
+      echo "ERROR: RETRY $TRY_COUNT"
+    else
+      TRY=0
+    fi
+  done
+
+# NOTE: preserve a blank line above
+
+uruseas::apache_log:  |
+  {
+    "@vips": [
+      "%v"
+    ],
+    "@source": "%v%U%q",
+    "@source_host": "%v",
+    "@source_path": "%f",
+    "@tags": [
+      "Apache",
+      "Access"
+    ],
+    "@message": "%h %l %u %t \"%r\" %>s %b",
+    "@fields": {
+      "timestamp": "%{%Y-%m-%dT%H:%M:%S%z}t",
+      "clientip": "%a",
+      "duration": "%D",
+      "status": "%>s",
+      "request": "%U%q",
+      "urlpath": "%U",
+      "urlquery": "%q",
+      "method": "%m",
+      "referer": "%{Referer}i",
+      "user-agent": "%{User-agent}i",
+      "bytes": "%B"
+    }
+  }
+
+urugeas::dbuser: 'dbuser'
+urugeas::command_template: "mysql -H ${HOST} -u %{hiera('urugeas::dbuser')} -D database -e \"query\""
+urugeas::error_patterns:
+  - 'end of file reached'
+  - 'failed to generate additional resource'
+  - 'encountered end of file'
+  - 'failed to list packages'
+  - 'retrieving certificate failed'
+
+urugeas::fatal_error_patterns:
+  - 'fatal error'
+
+urugeas::augeas_testing:
+  - set 'useSecurity/#text' 'false'
+  - set 'port/#text' '8000'
+  - set 'securityRealm/#attribute/class' 'example attribute'
+  - insert 'test' before 'securityRealm/authContext' # add node
+  - set 'securityRealm/test/#attribute/class' 'test class' # set attribute
+  - set 'securityRealm/test/#text' 'test text' # set text
+# - clear 'securityRealm/authContext' # this operation does not appear to work
+# - rm 'securityRealm/authContext' # this will work, commented for exrcise
+
+urugeas::tomcat_security_part1:
+  - insert 'filter-mapping' before 'securityRealm/authContext'
+  - set 'securityRealm/filter-mapping/filter-name/#text' 'httpHeaderSecurity'
+  - set 'securityRealm/filter-mapping/url-pattern/#text' '/*'
+  - set 'securityRealm/filter-mapping/dispatcher/#text' 'REQUEST'
+
+urugeas::tomcat_security_part2:
+  - insert 'filter' before 'securityRealm/authContext'
+  - set 'securityRealm/filter/filter-name/#text' 'httpHeaderSecurity'
+  - set 'securityRealm/filter/filter-class/#text' 'org.apache.catalina.filters.HttpHeaderSecurityFilter'
+  - set 'securityRealm/filter/async-supported/#text' 'true'
+  - insert 'init-param' after 'securityRealm/filter/async-supported'
+  - set 'securityRealm/filter/init-param/param-name/#text' 'antiClickJackingEnabled'
+  - set 'securityRealm/filter/init-param/param-value/#text' 'true'
+  - insert 'init-param' after 'securityRealm/filter/async-supported'
+  - set 'securityRealm/filter/init-param[1]/param-name/#text' 'antiClickJackingOption'
+  - set 'securityRealm/filter/init-param[1]/param-value/#text' 'SAMEORIGIN'
+
+urugeas::param1:
+  - 'one'
+  - 'two'
+  - 'three'
+urugeas::dummy::dummy_params:
+  created_resource1:
+    parameter1: 'param11'
+    parameter2: 'param12'
+    # can not loose - would raise the cast exception
+    # parameter 'parameter' expects a String value, got Undef
+    parameter4: 'param24'
+    delete_param: 'delete_param1'
+  created_resource2:
+    parameter1: 'param21'
+    parameter3: 'param23'
+    parameter4: 'param24'
+    delete_param: 'delete_param2'
+
+urugeas::param2: "%{alias('urugeas::param1')}"
+urugeas::param3: "%{hiera('urugeas::param1')}"
+urugeas::jetty_mod::headers:
+  'Content-Security-Policy': "frame-ancestors 'self' *.stackoverflow.com"
+  'X-Frame-Options': 'SAMEORIGIN'
+urugeas::source_encoding: 'UTF-8'
+urugeas::cron_command::replacements:
+ key1: 'first value from hiera'
+ key2: 'second value from hiera'
+ key3: 42
+ key4: 'not used'
+
+urugeas::query_filepath: '/tmp/sample_query.sql'
+# example of custom markup that would be replaced by Puppet
+# to alow query_filepath to be more flexible than per in-place hiera call
+# $cron_command = regsubst( hiera('urugeas::cron_command'), '%QUERY_FILEPATH%',
+#                 $query_filepath, 'G')
+# may have a problem with global replace, non-critical
+
+urugeas::cron_command:  |
+  # NOTE: cannot use '%{}' notation - will be discovered and evaluated by hiera itself
+  # NOTE: the %% syntax looks strange in shell script, likely a bad choice
+  QUERY_FILENAME='${QUERY_FILENAME_PARAMETER}' # replaced my Puppet
+  QUERY_FILEPATH='${QUERY_FILEPATH_PARAMETER}' # replaced my Puppet
+  if [ -z "${QUERY_FILEPATH}" ]
+  then
+    echo 'query file is not defined'
+    exit 1
+  fi
+  if [ ! -f "${QUERY_FILEPATH}" ]
+  then
+    echo "query file ${QUERY_FILEPATH} path is not found"
+    exit 1
+  fi
+  DB_REPORT_DIR='/tmp'
+  DB_HOST='database.consul.domain'
+  DB_PORT='%{hiera('db_port')}'
+  DB_USER='%{hiera('db_user')}'
+  DB_PASSWORD='%{hiera('db_password')}'
+  DATABASE='%{hiera('database')}'
+  DB_OPTIONS='%{hiera('db_options')}'
+  QUERY_PARAM1='${QUERY_PARAM1_PARAMETER}' # filled by Puppet
+  QUERY_PARAM2='${QUERY_PARAM2_PARAMETER}' # filled by Puppet
+  # https://stackoverflow.com/questions/14098222/pass-parameters-to-mysql-script
+  # https://stackoverflow.com/questions/10229324/pass-parameter-to-mysql-script-command-line/10265580
+  DB_QUERY_PARAM="set @query_param1 = '${QUERY_PARAM1}'; set @query_param2 = '${QUERY_PARAM2}'; "
+  DB_QUERY=$(cat "${QUERY_FILEPATH}")
+  DB_REPORT_FILENAME="report_$(date +%D|sed 's|/|_|g').log" # report_07_26_19.log
+  DB_REPORT_FILENAME="report_$(date +%Y_%m_%d).log" # report_2019_07_26.log
+  DB_POSPROCESSOR='%{hiera('db_postprocessor')}'
+  pushd $DB_REPORT_DIR
+  # collect the data
+  mysql -h $DB_HOST -P $DB_PORT -u $DB_USER -p"${DP_PASSWORD}" -D $DATABASE -e $DB_OPTIONS "${DB_QUERY_PARAM}\n${DB_QUERY}"
+  # post processing
+  $DB_POSPROCESSOR
+  popd
+
+# NOTE: need a blank line above
+
+urugeas::java_options:  |
+  -Dfile.encoding=%{hiera('urugeas::source_encoding')} \
+  -DAPP_LOG_ROOT=/var/log \
+
+# NOTE: need a blank line above
+# see also: https://yaml-multiline.info/
+urugeas::options_multiline: >-
+  -Dfile.encoding=%{hiera('urugeas::source_encoding')}
+  -DAPP_LOG_ROOT=/var/log
+  -Dmaven.test.skip=true
+
+
+# NOTE: need two blank lines above to terminate.
+# This comment needs to start the line
+
+# https://lzone.de/cheat-sheet/YAML
+# another free newline conversion multiline
+urugeas::options_multiline_v2:
+  -Dfile.encoding=%{hiera('urugeas::source_encoding')}
+  -DAPP_LOG_ROOT=/var/log
+  -Dmaven.test.skip=true
+   Arbitrary free text
+   over "multiple lines" stopping
+   after indentation changes...
+
+# end of data
+urugeas::job::debug: false
+urugeas::options_multiline_embed: "%{hiera('urugeas::options_multiline')}"
+urugeas::job::logdir_glob: 'log*'
+urugeas::job::current_logdir: 'log10'
+urugeas::job::number_logdirs_to_keep: 5
+urugeas::job::build_user: 'vagrant'
+# works fine in clean provision ?
+mysql::params::custom_datadir: '/opt/mysql/var/lib/mysql'
+mysql::params::default_datadir: '/var/lib/mysql'
+mysql::params::datadir: "%{hiera('mysql::params::default_datadir')}"
+mysql::params::socket:  "%{hiera('mysql::params::datadir')}/mysql.sock"
+mysql::params::user: 'mysql'
+urugeas::mysql::migrate_datadir: true
+
+artifact_checksum: 'b9b53d774b4d8889837bff12a04e184cb54165d0c1fe2b2298362163078e1a5d'
+urugeas::hieradata_check::search: '^(\d+)(?:\-.*)$'
+urugeas::hieradata_check::replace: '\1'
+
+artifact_filename: 'dummy.file'
+
+deep_data:
+  group_key1:
+    key1: 'value1'
+    key2: 'value2'
+  group_key2:
+    key3: 'value3'
+    key4: 'value4'
+    key5: 'value5'
+  group_key3:
+    key6: 'value6'
+

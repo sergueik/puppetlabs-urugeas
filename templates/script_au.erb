@@ -1,0 +1,81 @@
+<%#
+#  make a simple sample file from a '/opt/tomcat/conf/web.xml'  ,
+# e.g.
+<?xml version="1.0" encoding="UTF-8"?>
+<web>
+  <servlet>
+    <servlet-name>default</servlet-name>
+    <servlet-class>org.apache.catalina.servlets.DefaultServlet</servlet-class>
+    <init-param>
+      <param-name>debug</param-name>
+      <param-value>0</param-value>
+    </init-param>
+    <init-param>
+      <param-name>listings</param-name>
+      <param-value>false</param-value>
+    </init-param>
+    <load-on-startup>1</load-on-startup>
+  </servlet>
+</web>
+	
+export PATH=$PATH:/opt/puppetlabs/puppet/bin/
+augtool -A
+augtool>
+set '/augeas/load/xml/lens' 'Xml.lns'
+set '/augeas/load/xml/incl' '/tmp/dummy.xml'
+load
+print /files/tmp/dummy.xml/web/servlet
+...
+/files/tmp/dummy.xml/web/servlet/load-on-startup
+/files/tmp/dummy.xml/web/servlet/load-on-startup/#text = "1"
+/files/tmp/dummy.xml/web/servlet/#text[6] = "    "
+augtool>
+
+%>
+set '/augeas/load/xml/lens' 'Xml.lns'
+set '/augeas/load/xml/incl' '<%= @tomcat_config_file -%>'
+<%#
+incorrect values of the template would lead to
+/augeas/error/pathx/ = "type error"
+/augeas/error/pathx/pos = ... details of the unpareseable locator ...
+
+and
+
+/augas/files/....path.../error = "put_read"
+/augas/files/....path.../error/message = "is a directory"
+
+%>
+load
+# Arbirtarily places the new config close to an end ot web-app 
+# NOTE: assumes the session-config is present
+insert 'filter' before '/files/<%= @tomcat_config_file -%>/web-app/session-config/session-timeout[#text="30"][parent::*]'
+# a safer place would be above the mime mapping group
+# insert 'filter' before '/files/<%= @tomcat_config_file -%>/web-app/mime-mapping[1]'
+# NOTE: assumes there is only one "/web-app/filter" node.
+# # protect against "too many matches for path expression" augeas error when dulicate nodes are found in the XML
+set '/files<%= @tomcat_config_file -%>/web-app/filter[last()]/filter-name/#text' 'httpHeaderSecurity'
+set '/files<%= @tomcat_config_file -%>/web-app/filter[last()]/filter-class/#text' 'org.apache.catalina.filters.HttpHeaderSecurityFilter'
+set '/files<%= @tomcat_config_file -%>/web-app/filter[last()]/async-supported/#text' 'true'
+save
+print '/files<%= @tomcat_config_file -%>/web-app/filter[last()]'
+
+insert 'filter-mapping' before '/files<%= @tomcat_config_file -%>/web-app/session-config'
+
+set '/files<%= @tomcat_config_file -%>/web-app/filter-mapping[last()]/filter-name/#text' 'httpHeaderSecurity'
+set '/files<%= @tomcat_config_file -%>/web-app/filter-mapping[last()]/url-pattern/#text' '/*'
+set '/files<%= @tomcat_config_file -%>/web-app/filter-mapping[last()]/dispatcher/#text' 'REQUEST'
+save
+print '/files<%= @tomcat_config_file -%>/web-app/filter-mapping[last()]'
+
+insert 'init-param' after '/files<%= @tomcat_config_file -%>/web-app/filter/async-supported'
+
+# write the children of /web-app/filter/init-param'
+set '/files<%= @tomcat_config_file -%>/web-app/filter[last()]/init-param[1]/param-name/#text' 'antiClickJackingEnabled'
+set '/files<%= @tomcat_config_file -%>/web-app/filter[last()]/init-param[1]/param-value/#text' 'true'
+insert 'init-param' after '/files<%= @tomcat_config_file -%>/web-app/filter/async-supported'
+set '/files<%= @tomcat_config_file -%>/web-app/filter[last()]/init-param[1]/param-name/#text' 'antiClickJackingOption'
+set '/files<%= @tomcat_config_file -%>/web-app/filter[last()]/init-param[1]/param-value/#text' 'SAMEORIGIN'
+save
+print '/files<%= @tomcat_config_file -%>/web-app/filter[last()]'
+# finally print errors
+print '/augeas//error'

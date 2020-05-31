@@ -1,0 +1,12 @@
+<command>
+<![CDATA[
+<%#  Error pattern regexp parameter is compiled from string array hiera parameter by Puppet code %>
+ERROR_PATTERNS_REGEXP=&apos;<%= @error_patterns_regexp_cdata -%>&apos;
+FATAL_ERROR_PATTERNS_REGEXP=&apos;<%= @fatal_error_patterns_regexp_cdata -%>&apos;
+LOG_FILE=&apos;/tmp/process.log&apos;
+<%# Shell retry logic follows. %>
+<%# Note different logic of handling ERROR_PATTERNS and FATAL_ERROR_PATTERNS %>
+<%= @shell_command_cdata -%>
+]]>
+</command>
+<%# Shell script is loaded from inline newline-preserving string hiera parameter %>
