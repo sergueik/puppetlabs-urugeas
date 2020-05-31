@@ -6,12 +6,12 @@ end
 
 require 'puppetlabs_spec_helper/module_spec_helper'
 # cannot load 
-#  rspec-puppet-facts (1.10.0#
-# require 'rspec-puppet-facts'
+#  rspec-puppet-facts (1.10.0)
+require 'rspec-puppet-facts'
 
 require 'spec_helper_local' if File.file?(File.join(File.dirname(__FILE__), 'spec_helper_local.rb'))
 
-# include RspecPuppetFacts
+include RspecPuppetFacts
 
 default_facts = {
   puppetversion: Puppet.version,

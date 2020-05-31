@@ -98,6 +98,9 @@ class urugeas(
   # Nore: miltiline hiera apparently does not work well with puppet-rpec
   # Function lookup() did not find a value for the name 'urugeas::options_multiline_embed'
   Optional[String] $options_multiline_embed = hiera('urugeas::options_multiline_embed', undef),
+  String $config_dir = '/var/lib/jenkins',
+  String $tmp_dir = '/tmp',
+  String $config_file = "${config_dir}/config_xml",
 
 ){
 
@@ -312,8 +315,6 @@ class urugeas(
   #     'fourth' => 'string', # not a hash in val
   #   })
 
-  $config_dir = '/var/lib/jenkins'
-  $config_file = "${config_dir}/config_xml"
   # NOTE: change to 'web.xml', 'session-config' to see the error
   # Could not evaluate: Error sending command 'insert' with params ["filter-mapping", "before", "/files/var/lib/jenkins/web.xml/session-config/securityRealm/authContext"]
   $tomcat_config_file = "${config_dir}/web.xml"
@@ -453,14 +454,15 @@ class urugeas(
     #  "${line}\n"
     # }
     $random = fqdn_rand(1000,$::uptime_seconds)
-    $augtool_script = "/tmp/script_${random}.au"
+    $augtool_script = "${tmp_dir}/script_${random}.au"
     # https://puppet.com/docs/puppet/5.3/lang_data_string.html#syntax
 
     $command = @("END"/n$)
       AUGTOOL_SCRIPT='${augtool_script}'
       augtool -A -f \$AUGTOOL_SCRIPT | tee '/tmp/a_${random}.log'
     |-END
-    file { "/tmp/a_${random}.sh":
+
+    file { "${tmp_dir}/a_${random}.sh":
       content => $xmllint_command,
       mode    => '0775',
       owner   => 'root',

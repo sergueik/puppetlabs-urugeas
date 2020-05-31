@@ -1,5 +1,7 @@
 ---
 urugeas::udlc: false
+urugeas::config_dir: 'c:\jenkins'
+urugeas::tmp_dir: 'c:\temp'
 urugeas::version: '0.2.3'
 urugeas::undef_value: ~
 urugeas::empty_value: ''
