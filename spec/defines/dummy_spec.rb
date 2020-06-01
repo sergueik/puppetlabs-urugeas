@@ -1,10 +1,10 @@
 require 'spec_helper'
 
 describe 'urugeas::dummy' do
-  context 'with an name and param' do
+  context 'write resource using type name and parameters' do
     let(:title) { 'test' }
 
-    context 'and ensure => absent' do
+    context 'and parameters are provided' do
       let(:params) { 
         {
           :parameter1 => 'parameter1',
