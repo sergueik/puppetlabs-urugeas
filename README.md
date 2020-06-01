@@ -12,3 +12,6 @@ prepare link to main module
 ```
 mklink  /D spec\fixtures\modules\urugeas c:\developer\sergueik\puppetlabs-urugeas
 ```
+### See Also
+
+ * [Docker-based](https://github.com/gregswift/docker-rspec-puppet/blob/master/puppet4/Dockerfile)

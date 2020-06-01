@@ -7,7 +7,9 @@ define urugeas::dummy (
   String $parameter4 = undef,
 ) {
 
-  notify {"${name} parameter1 = ${parameter1}":}
+  notify {"${name} parameter1 = ${parameter1}":
+    message => "parameter1 = ${parameter1}",
+  }
   notify {"${name} parameter2 = ${parameter2}":}
   notify {"${name} parameter3 = ${parameter3}":}
   notify {"${name} parameter4 = ${parameter4}":}
