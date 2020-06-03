@@ -93,7 +93,7 @@ class urugeas(
   # urugeas::setting: On
   $untyped_setting = hiera("${name}::setting",'On'),
   # NOTE: implicit conversion went OK in provision but failed rspec
-  String $options_multiline = lookup('urugeas:options_multiline', String, 'first', 'false'), 
+  String $options_multiline = lookup('urugeas:options_multiline', String, 'first', 'false'),
   String $options_multiline_v2 = lookup('urugeas:options_multiline_v2', String, 'first', 'false'),
   # Nore: miltiline hiera apparently does not work well with puppet-rpec
   # Function lookup() did not find a value for the name 'urugeas::options_multiline_embed'
@@ -345,7 +345,10 @@ class urugeas(
   # /files/var/lib/jenkins/web.xml/web-app/session-config/session-timeout
   # /files/var/lib/jenkins/web.xml/web-app/session-config/session-timeout/#text = "30"
   # print '/files/var/lib/jenkins/web.xml/web-app/session-config[./session-timeout="30"]'
-
+ # very basic create_resources:
+ # more sophisticaled sample can be found earlier in the same profile
+ $p = {'test1' => {'parameter1' => 'test1 parameter1','parameter4'=>'test1 parameter4'}, 'test2'=> {'parameter1' => 'test2 parameter1', 'parameter4' => 'test p arameter4'}}
+  create_resources('urugeas::dummy',$p, {})
   $config_template = @(END)
      <hudson>
        <useSecurity>true</useSecurity>

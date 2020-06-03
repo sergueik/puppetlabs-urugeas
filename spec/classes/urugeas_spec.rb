@@ -5,7 +5,7 @@ describe 'urugeas' do
     let(:facts) { {:osfamily => 'Debian'} }	
     let(:facts) { { is_virtual: false } }
     let(:facts) { { uptime_seconds: 120 } }
-  
+
     let(:conf_path) do
       if defined?(os) and os =~ %r{solaris}
         '/etc/inet/urugeas.conf'
@@ -14,11 +14,14 @@ describe 'urugeas' do
       end
     end
     it { is_expected.to compile.with_all_deps }
-  
+
     it { is_expected.to contain_class('urugeas::defined_check') }
     it { is_expected.to_not contain_class('urugeas::cron_schedule') }
+    # create_resources is a little tricky
+    it { is_expected.to contain_urugeas__dummy('test1').with({'parameter1' => 'test1 parameter1'}) }
+    it { is_expected.to contain_notify('test1 parameter2 = param2_default') }
     # Ruby parameter
-    config_dir = 'c:\jenkins' 
+    config_dir = 'c:\jenkins'
     it { is_expected.to contain_file( config_dir ).with_ensure('directory').with({'ensure' => 'directory'}) }
     # NOTE funny path separators. The code is never intended to operate on Windows in reality
     it { is_expected.to contain_file("#{config_dir}/config_xml").with({ 'ensure'=>'file', 'require' => "File[#{config_dir}]"}) }
